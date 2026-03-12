@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GRAVITY BREACH — Forces Escape Room</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Bebas+Neue&display=swap');
+
+  :root {
+    --bg: #0c0a0a;
+    --panel: #140f0f;
+    --border: #3a1a0a;
+    --accent: #ff4500;
+    --accent2: #ffa500;
+    --success: #39ff14;
+    --danger: #ff1744;
+    --warn: #ffe566;
+    --text: #f0ddd0;
+    --dim: #8a6050;
+    --glow: 0 0 20px rgba(255,69,0,0.5);
+    --glow2: 0 0 20px rgba(255,165,0,0.4);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 16px;
+    min-height: 100vh;
+    overflow-x: hidden;
+    background-image:
+      radial-gradient(ellipse at 10% 80%, rgba(80,20,0,0.35) 0%, transparent 55%),
+      radial-gradient(ellipse at 90% 10%, rgba(60,10,0,0.25) 0%, transparent 50%);
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg, transparent, transparent 3px,
+      rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* Floating particles */
+  .particles { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+  .particle {
+    position: absolute;
+    width: 2px; height: 2px;
+    background: var(--accent);
+    border-radius: 50%;
+    opacity: 0;
+    animation: drift var(--dur, 8s) var(--delay, 0s) ease-in infinite;
+  }
+  @keyframes drift {
+    0% { transform: translateY(100vh) translateX(0); opacity: 0; }
+    10% { opacity: 0.4; }
+    90% { opacity: 0.2; }
+    100% { transform: translateY(-20px) translateX(var(--drift, 30px)); opacity: 0; }
+  }
+
+  /* SCREENS */
+  .screen { display: none; position: relative; z-index: 1; min-height: 100vh; padding: 20px; }
+  .screen.active { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+
+  /* TITLE SCREEN */
+  #screen-title { text-align: center; gap: 22px; }
+  .title-badge {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--accent2);
+    letter-spacing: 0.3em;
+    padding: 5px 14px;
+    border: 1px solid var(--accent2);
+    border-radius: 2px;
+    animation: flicker 3s ease-in-out infinite;
+  }
+  @keyframes flicker {
+    0%,95%,100% { opacity: 1; }
+    96% { opacity: 0.2; }
+    97% { opacity: 1; }
+    98% { opacity: 0.3; }
+  }
+  .main-title {
+    font-family: 'Bebas Neue', monospace;
+    font-size: clamp(3rem, 10vw, 6rem);
+    color: #fff;
+    line-height: 0.9;
+    letter-spacing: 0.05em;
+    text-shadow: 0 0 50px rgba(255,69,0,0.6), 0 0 100px rgba(255,69,0,0.2);
+  }
+  .main-title span { color: var(--accent); }
+  .subtitle {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem;
+    color: var(--dim);
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+  .story-box {
+    max-width: 600px;
+    background: rgba(30,10,5,0.8);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 20px 24px;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: #c0a898;
+    text-align: left;
+  }
+  .story-box strong { color: var(--accent2); font-family: 'Share Tech Mono', monospace; }
+
+  /* PROGRESS */
+  .progress-strip { position: fixed; top: 0; left: 0; right: 0; height: 3px; background: #1a0800; z-index: 100; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width 0.6s ease; box-shadow: 0 0 12px var(--accent); }
+
+  .top-bar {
+    position: fixed; top: 8px; left: 0; right: 0;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0 20px; z-index: 99;
+    font-family: 'Share Tech Mono', monospace; font-size: 0.78rem; color: var(--dim);
+  }
+  .room-indicator { color: var(--accent2); letter-spacing: 0.1em; }
+  .score-display { color: var(--warn); }
+
+  /* PANELS */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 26px;
+    max-width: 740px;
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+  }
+  .panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.7;
+  }
+  .panel-title {
+    font-family: 'Bebas Neue', monospace;
+    font-size: 1.6rem;
+    color: #fff;
+    margin-bottom: 4px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .room-num {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.68rem;
+    background: var(--accent);
+    color: #000;
+    padding: 2px 8px;
+    border-radius: 2px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+  }
+  .panel-desc {
+    color: var(--dim);
+    font-size: 0.9rem;
+    margin-bottom: 18px;
+    line-height: 1.65;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 14px;
+  }
+  .panel-desc strong { color: var(--text); }
+
+  /* QUESTIONS */
+  .q-counter { font-family: 'Share Tech Mono', monospace; font-size: 0.75rem; color: var(--dim); margin-bottom: 6px; }
+  .q-dots { display: flex; gap: 6px; margin-bottom: 14px; }
+  .q-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); transition: background 0.3s; }
+  .q-dot.done { background: var(--success); }
+  .q-dot.current { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+
+  .q-text { font-size: 1rem; font-weight: 600; color: #f0ddd0; margin-bottom: 14px; line-height: 1.6; }
+  .q-hint { font-family: 'Share Tech Mono', monospace; font-size: 0.78rem; color: var(--accent2); margin-bottom: 8px; opacity: 0.85; }
+
+  /* DIAGRAM */
+  .diagram {
+    background: rgba(10,5,0,0.8);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 14px; margin: 12px 0; text-align: center;
+  }
+  .diagram svg { max-width: 100%; }
+  .diagram-label { font-family: 'Share Tech Mono', monospace; font-size: 0.72rem; color: var(--dim); margin-top: 8px; }
+
+  /* OPTIONS */
+  .options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  .options.single-col { grid-template-columns: 1fr; }
+  .opt-btn {
+    background: rgba(40,15,5,0.5);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.92rem;
+    font-weight: 600;
+    text-align: left;
+    transition: all 0.2s;
+    position: relative; overflow: hidden;
+  }
+  .opt-btn::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: var(--accent); opacity: 0; transition: opacity 0.2s;
+  }
+  .opt-btn:hover { border-color: var(--accent); background: rgba(255,69,0,0.1); color: #fff; transform: translateX(3px); }
+  .opt-btn:hover::before { opacity: 1; }
+  .opt-btn.correct { border-color: var(--success); background: rgba(57,255,20,0.1); color: var(--success); pointer-events: none; }
+  .opt-btn.correct::before { background: var(--success); opacity: 1; }
+  .opt-btn.wrong { border-color: var(--danger); background: rgba(255,23,68,0.08); color: var(--danger); pointer-events: none; text-decoration: line-through; opacity: 0.65; }
+  .opt-btn.disabled { pointer-events: none; opacity: 0.45; }
+
+  /* INPUT */
+  .input-row { display: flex; gap: 10px; margin-top: 12px; align-items: center; }
+  .code-input {
+    flex: 1;
+    background: rgba(10,3,0,0.9);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--accent2);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1.3rem;
+    padding: 10px 16px;
+    letter-spacing: 0.2em;
+    text-align: center;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .code-input:focus { border-color: var(--accent); box-shadow: var(--glow); }
+  .code-input.success { border-color: var(--success); color: var(--success); }
+  .code-input.error { border-color: var(--danger); color: var(--danger); animation: shake 0.3s; }
+  @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+
+  /* BUTTONS */
+  .btn {
+    font-family: 'Rajdhani', sans-serif; font-weight: 700;
+    font-size: 0.9rem; padding: 11px 26px;
+    border: none; border-radius: 4px; cursor: pointer;
+    letter-spacing: 0.12em; text-transform: uppercase; transition: all 0.2s;
+  }
+  .btn-primary { background: var(--accent); color: #fff; box-shadow: var(--glow); }
+  .btn-primary:hover { background: #ff6a33; transform: translateY(-2px); box-shadow: 0 6px 30px rgba(255,69,0,0.5); }
+  .btn-secondary { background: transparent; color: var(--accent2); border: 1px solid var(--accent2); }
+  .btn-secondary:hover { background: rgba(255,165,0,0.1); }
+  .btn-orange { background: var(--accent2); color: #000; font-weight: 700; }
+  .btn-orange:hover { background: #ffbe33; transform: translateY(-2px); }
+
+  /* FEEDBACK */
+  .feedback { margin-top: 14px; padding: 12px 16px; border-radius: 4px; font-size: 0.9rem; line-height: 1.65; display: none; }
+  .feedback.show { display: block; }
+  .feedback.good { background: rgba(57,255,20,0.07); border: 1px solid var(--success); color: var(--success); }
+  .feedback.bad { background: rgba(255,23,68,0.07); border: 1px solid var(--danger); color: #ff8fa0; }
+
+  .next-btn-row { display: flex; justify-content: flex-end; margin-top: 16px; }
+
+  /* FORMULA */
+  .formula-box {
+    display: inline-block;
+    background: rgba(5,2,0,0.9);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    padding: 7px 18px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1.05rem;
+    color: var(--accent2);
+    margin: 6px 4px;
+    box-shadow: var(--glow);
+  }
+
+  /* CLUE DISPLAY */
+  .clue-display {
+    font-family: 'Bebas Neue', monospace;
+    font-size: 2.6rem;
+    color: var(--warn);
+    letter-spacing: 0.6em;
+    text-align: center;
+    padding: 18px;
+    background: rgba(5,2,0,0.9);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin: 12px 0;
+    text-shadow: 0 0 20px rgba(255,229,102,0.5);
+  }
+  .clue-display span { opacity: 0.2; }
+
+  /* ROOMS NAV */
+  .rooms-nav { display: flex; gap: 6px; margin-bottom: 18px; flex-wrap: wrap; justify-content: center; }
+  .room-pip {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Share Tech Mono', monospace; font-size: 0.72rem; color: var(--dim);
+    transition: all 0.3s;
+  }
+  .room-pip.done { border-color: var(--success); color: var(--success); background: rgba(57,255,20,0.08); }
+  .room-pip.current { border-color: var(--accent); color: var(--accent); background: rgba(255,69,0,0.1); box-shadow: var(--glow); }
+
+  /* LOCK ICON */
+  .lock-icon { font-size: 3rem; text-align: center; margin: 10px 0; animation: levitate 3s ease-in-out infinite; }
+  @keyframes levitate { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+
+  /* WIN */
+  #screen-win { text-align: center; gap: 20px; }
+  .win-title {
+    font-family: 'Bebas Neue', monospace;
+    font-size: clamp(2.5rem, 7vw, 4.5rem);
+    color: var(--success);
+    text-shadow: 0 0 40px rgba(57,255,20,0.5);
+  }
+  .final-code {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 2.8rem;
+    color: var(--warn);
+    letter-spacing: 0.5em;
+    text-shadow: 0 0 30px rgba(255,229,102,0.6);
+    animation: glow-pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes glow-pulse {
+    0%,100% { text-shadow: 0 0 30px rgba(255,229,102,0.6); }
+    50% { text-shadow: 0 0 60px rgba(255,229,102,1), 0 0 100px rgba(255,165,0,0.4); }
+  }
+  .stats-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; max-width: 500px; width: 100%; }
+  .stat-card { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 16px 12px; text-align: center; }
+  .stat-num { font-family: 'Bebas Neue', monospace; font-size: 2rem; color: var(--accent2); }
+  .stat-label { font-size: 0.72rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 4px; }
+
+  .success-burst { position: fixed; inset: 0; background: radial-gradient(circle, rgba(255,69,0,0.15) 0%, transparent 70%); pointer-events: none; z-index: 50; opacity: 0; transition: opacity 0.5s; }
+  .success-burst.flash { opacity: 1; }
+
+  /* Force arrow diagram specific */
+  .force-arrow { stroke: var(--accent); stroke-width: 3; fill: none; }
+  .force-label { fill: var(--accent2); font-family: 'Share Tech Mono', monospace; font-size: 13px; }
+
+  @media (max-width: 600px) {
+    .options { grid-template-columns: 1fr; }
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .panel { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Floating particles -->
+<div class="particles" id="particles"></div>
+
+<div class="progress-strip"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+<div class="success-burst" id="success-burst"></div>
+
+<div class="top-bar" id="top-bar" style="display:none">
+  <span class="room-indicator" id="room-indicator">ROOM 1 / 5</span>
+  <span>GRAVITY BREACH — FORCES MISSION</span>
+  <span class="score-display">⭐ <span id="score-display">0</span> pts</span>
+</div>
+
+<!-- ====== TITLE ====== -->
+<div class="screen active" id="screen-title">
+  <div class="title-badge">⚠️ CRITICAL ALERT — YEAR 9 SCIENCE</div>
+  <div class="main-title">GRAVITY<br><span>BREACH</span></div>
+  <div class="subtitle">A Forces Physics Escape Room</div>
+  <div class="story-box">
+    <strong>🚀 MISSION BRIEFING:</strong><br>
+    The orbital control centre has lost all stabilisation systems. An unknown force has disrupted every
+    <strong>thruster, gravity compensator, and pressure lock</strong> aboard the station.<br><br>
+    To regain control, you must crack <strong>5 security vaults</strong>, each sealed with a forces physics 
+    puzzle. Master <strong>Newton's Laws, pressure, moments, and motion</strong> to unlock the final 
+    emergency override and save the crew.<br><br>
+    <strong>Your physics knowledge is all that stands between order and chaos.</strong>
+  </div>
+  <button class="btn btn-primary" onclick="startGame()">▶ INITIATE MISSION</button>
+</div>
+
+<!-- ====== GAME ====== -->
+<div class="screen" id="screen-game">
+  <div class="rooms-nav" id="rooms-nav"></div>
+  <div class="panel" id="game-panel"></div>
+</div>
+
+<!-- ====== WIN ====== -->
+<div class="screen" id="screen-win">
+  <div class="title-badge">✅ ALL VAULTS CLEARED</div>
+  <div class="win-title">STATION STABILISED!</div>
+  <p style="color:var(--dim); max-width:480px; line-height:1.7;">Outstanding work, Agent. All force physics vaults cracked. The station is back under control. Your master override code:</p>
+  <div class="final-code">F0RC3</div>
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-num" id="final-score">0</div><div class="stat-label">Total Points</div></div>
+    <div class="stat-card"><div class="stat-num" id="final-hints">0</div><div class="stat-label">Hints Used</div></div>
+    <div class="stat-card"><div class="stat-num" id="final-time">0s</div><div class="stat-label">Time Taken</div></div>
+  </div>
+  <div class="panel" style="max-width:740px; margin-top:10px; text-align:left;">
+    <div class="panel-title">🔬 Key Forces Facts — Revision Summary</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; font-size:0.85rem; color:var(--dim); line-height:1.7">
+      <div>• Force = mass × acceleration <span style="color:var(--accent2); font-family:monospace">(F = ma)</span></div>
+      <div>• Weight = mass × gravitational field strength <span style="color:var(--accent2); font-family:monospace">(W = mg)</span></div>
+      <div>• Newton's 1st Law: balanced forces → constant velocity</div>
+      <div>• Newton's 3rd Law: every action has equal & opposite reaction</div>
+      <div>• Pressure = Force ÷ Area <span style="color:var(--accent2); font-family:monospace">(P = F/A)</span></div>
+      <div>• Moment = Force × perpendicular distance <span style="color:var(--accent2); font-family:monospace">(M = Fd)</span></div>
+      <div>• Resultant force = vector sum of all forces</div>
+      <div>• g on Earth ≈ 10 N/kg (or 9.8 N/kg)</div>
+      <div>• Friction always opposes motion</div>
+      <div>• Balanced moments → object in equilibrium (principle of moments)</div>
+    </div>
+  </div>
+  <button class="btn btn-primary" onclick="restartGame()" style="margin-top:8px">↩ PLAY AGAIN</button>
+</div>
+
+<script>
+// ============================================================
+// PARTICLES
+// ============================================================
+(function() {
+  const cont = document.getElementById('particles');
+  for (let i = 0; i < 18; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.setProperty('--dur', (6 + Math.random() * 10) + 's');
+    p.style.setProperty('--delay', (Math.random() * 8) + 's');
+    p.style.setProperty('--drift', ((Math.random() - 0.5) * 80) + 'px');
+    p.style.left = (Math.random() * 100) + '%';
+    cont.appendChild(p);
+  }
+})();
+
+// ============================================================
+// STATE
+// ============================================================
+let state = { room: 0, score: 0, hintsUsed: 0, startTime: null };
+let questionIndex = 0;
+let questionsCorrect = 0;
+let hintShown = false;
+let clueIndex = 0;
+let collectedDigits = [];
+let currentRoom = null;
+
+// ============================================================
+// DIAGRAMS
+// ============================================================
+function getDiagram(type) {
+  if (type === 'force_arrows') {
+    return `<svg viewBox="0 0 340 120" xmlns="http://www.w3.org/2000/svg" style="max-width:320px">
+      <!-- Object box -->
+      <rect x="130" y="40" width="80" height="40" fill="rgba(40,15,5,0.8)" stroke="#3a1a0a" stroke-width="2" rx="3"/>
+      <text x="170" y="65" fill="#f0ddd0" font-family="Share Tech Mono" font-size="12" text-anchor="middle">10 kg</text>
+      <!-- Weight down -->
+      <line x1="170" y1="80" x2="170" y2="112" stroke="#ff4500" stroke-width="2.5" marker-end="url(#da)"/>
+      <text x="178" y="105" fill="#ff4500" font-family="Share Tech Mono" font-size="11">W</text>
+      <!-- Normal up -->
+      <line x1="170" y1="40" x2="170" y2="8" stroke="#39ff14" stroke-width="2.5" marker-end="url(#ua)"/>
+      <text x="178" y="22" fill="#39ff14" font-family="Share Tech Mono" font-size="11">N</text>
+      <!-- Push right -->
+      <line x1="210" y1="60" x2="290" y2="60" stroke="#ffa500" stroke-width="2.5" marker-end="url(#ra)"/>
+      <text x="250" y="54" fill="#ffa500" font-family="Share Tech Mono" font-size="11">40 N</text>
+      <!-- Friction left -->
+      <line x1="130" y1="60" x2="50" y2="60" stroke="#aaa" stroke-width="2.5" marker-end="url(#la)"/>
+      <text x="60" y="54" fill="#aaa" font-family="Share Tech Mono" font-size="11">15 N</text>
+      <defs>
+        <marker id="da" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#ff4500"/></marker>
+        <marker id="ua" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#39ff14"/></marker>
+        <marker id="ra" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#ffa500"/></marker>
+        <marker id="la" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#aaa"/></marker>
+      </defs>
+    </svg>`;
+  }
+  if (type === 'moment_diagram') {
+    return `<svg viewBox="0 0 340 130" xmlns="http://www.w3.org/2000/svg" style="max-width:320px">
+      <!-- Beam -->
+      <rect x="20" y="55" width="300" height="10" fill="#3a1a0a" stroke="#ff4500" stroke-width="1.5" rx="2"/>
+      <!-- Pivot triangle -->
+      <polygon points="170,65 155,90 185,90" fill="#ffa500" stroke="#ffa500" stroke-width="1"/>
+      <!-- Ground -->
+      <line x1="145" y1="90" x2="195" y2="90" stroke="#ffa500" stroke-width="2"/>
+      <!-- Left force -->
+      <line x1="60" y1="20" x2="60" y2="54" stroke="#ff4500" stroke-width="2.5" marker-end="url(#fd)"/>
+      <text x="64" y="40" fill="#ff4500" font-family="Share Tech Mono" font-size="12">30 N</text>
+      <!-- Right force -->
+      <line x1="260" y1="20" x2="260" y2="54" stroke="#39ff14" stroke-width="2.5" marker-end="url(#fd2)"/>
+      <text x="264" y="40" fill="#39ff14" font-family="Share Tech Mono" font-size="12">F</text>
+      <!-- Distance labels -->
+      <line x1="60" y1="100" x2="170" y2="100" stroke="#aaa" stroke-width="1"/>
+      <text x="108" y="115" fill="#aaa" font-family="Share Tech Mono" font-size="11" text-anchor="middle">1.1 m</text>
+      <line x1="170" y1="100" x2="260" y2="100" stroke="#aaa" stroke-width="1"/>
+      <text x="215" y="115" fill="#aaa" font-family="Share Tech Mono" font-size="11" text-anchor="middle">0.6 m</text>
+      <defs>
+        <marker id="fd" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#ff4500"/></marker>
+        <marker id="fd2" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#39ff14"/></marker>
+      </defs>
+    </svg>`;
+  }
+  if (type === 'pressure_diagram') {
+    return `<svg viewBox="0 0 300 110" xmlns="http://www.w3.org/2000/svg" style="max-width:280px">
+      <!-- Block A -->
+      <rect x="30" y="20" width="80" height="50" fill="rgba(255,69,0,0.15)" stroke="#ff4500" stroke-width="1.5" rx="2"/>
+      <text x="70" y="50" fill="#ff4500" font-family="Share Tech Mono" font-size="12" text-anchor="middle">Block A</text>
+      <text x="70" y="65" fill="#ffa500" font-family="Share Tech Mono" font-size="10" text-anchor="middle">0.02 m²</text>
+      <!-- Ground A -->
+      <line x1="20" y1="70" x2="120" y2="70" stroke="#3a1a0a" stroke-width="3"/>
+      <!-- Block B -->
+      <rect x="190" y="35" width="50" height="35" fill="rgba(255,165,0,0.15)" stroke="#ffa500" stroke-width="1.5" rx="2"/>
+      <text x="215" y="57" fill="#ffa500" font-family="Share Tech Mono" font-size="11" text-anchor="middle">Block B</text>
+      <!-- Ground B -->
+      <line x1="180" y1="70" x2="250" y2="70" stroke="#3a1a0a" stroke-width="3"/>
+      <!-- Force arrows down -->
+      <line x1="70" y1="5" x2="70" y2="18" stroke="#ff4500" stroke-width="2" marker-end="url(#pda)"/>
+      <text x="78" y="14" fill="#ff4500" font-family="Share Tech Mono" font-size="10">500 N</text>
+      <line x1="215" y1="10" x2="215" y2="33" stroke="#ffa500" stroke-width="2" marker-end="url(#pdb)"/>
+      <text x="223" y="22" fill="#ffa500" font-family="Share Tech Mono" font-size="10">500 N</text>
+      <defs>
+        <marker id="pda" markerWidth="5" markerHeight="5" refX="2.5" refY="2.5" orient="auto"><path d="M0,0 L5,2.5 L0,5 Z" fill="#ff4500"/></marker>
+        <marker id="pdb" markerWidth="5" markerHeight="5" refX="2.5" refY="2.5" orient="auto"><path d="M0,0 L5,2.5 L0,5 Z" fill="#ffa500"/></marker>
+      </defs>
+    </svg>`;
+  }
+  if (type === 'terminal_velocity') {
+    return `<svg viewBox="0 0 280 160" xmlns="http://www.w3.org/2000/svg" style="max-width:260px">
+      <!-- Skydiver -->
+      <ellipse cx="140" cy="55" rx="18" ry="22" fill="rgba(255,69,0,0.2)" stroke="#ff4500" stroke-width="1.5"/>
+      <circle cx="140" cy="30" r="10" fill="rgba(255,165,0,0.3)" stroke="#ffa500" stroke-width="1.5"/>
+      <!-- Weight arrow down (long) -->
+      <line x1="140" y1="77" x2="140" y2="140" stroke="#ff4500" stroke-width="3" marker-end="url(#tvda)"/>
+      <text x="148" y="120" fill="#ff4500" font-family="Share Tech Mono" font-size="11">Weight</text>
+      <!-- Air resistance up (same length = terminal velocity) -->
+      <line x1="140" y1="12" x2="140" y2="77" stroke="#39ff14" stroke-width="3" marker-end="url(#tvua)"/>
+      <text x="32" y="44" fill="#39ff14" font-family="Share Tech Mono" font-size="10">Air resistance</text>
+      <!-- Equal sign -->
+      <text x="110" y="155" fill="#ffa500" font-family="Share Tech Mono" font-size="11">W = F_drag</text>
+      <defs>
+        <marker id="tvda" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#ff4500"/></marker>
+        <marker id="tvua" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#39ff14"/></marker>
+      </defs>
+    </svg>`;
+  }
+  return '';
+}
+
+// ============================================================
+// ROOMS
+// ============================================================
+const rooms = [
+
+  // ROOM 1 — Forces & Newton's Laws
+  {
+    id: 1,
+    title: "Newton's Command Centre",
+    tag: "ROOM 01 — FORCES & NEWTON'S LAWS",
+    desc: "The AI has corrupted the station's force databases. Identify the correct laws and definitions to restore them.",
+    type: "multi-mc",
+    questions: [
+      {
+        q: "A 10 kg box has a pushing force of 40 N to the right and friction of 15 N to the left (see diagram). What is the resultant force?",
+        diagram: "force_arrows",
+        opts: ["55 N to the right", "25 N to the right", "15 N to the left", "40 N to the right"],
+        answer: 1,
+        feedback: "Correct! Resultant force = 40 N − 15 N = 25 N to the right. Resultant force is found by subtracting opposing forces. Since there's a net force, the box will accelerate to the right."
+      },
+      {
+        q: "Newton's First Law states that an object will remain at rest OR move at constant velocity unless…",
+        opts: [
+          "…it is moving at high speed",
+          "…acted on by a resultant (unbalanced) force",
+          "…gravity pulls it downward",
+          "…friction is present"
+        ],
+        answer: 1,
+        feedback: "Correct! Newton's 1st Law is about inertia. If forces are balanced (resultant = 0), the object carries on doing what it's doing — no change in motion. An unbalanced force is needed to cause a change."
+      },
+      {
+        q: "A rocket pushes hot gas downwards. According to Newton's Third Law, what happens?",
+        opts: [
+          "The rocket stays still due to balanced forces",
+          "The gas pushes back on the rocket with an equal but opposite force upward",
+          "The rocket accelerates downward",
+          "Only the gas experiences a force"
+        ],
+        answer: 1,
+        feedback: "Correct! Newton's 3rd Law: every action has an equal and opposite reaction. The rocket exerts a force on the gas (downward) — the gas exerts an equal force on the rocket (upward). This is what propels rockets!"
+      },
+      {
+        q: "Which of these is a CONTACT force?",
+        opts: ["Gravity", "Magnetism", "Friction", "Electrostatic force"],
+        answer: 2,
+        feedback: "Correct! Friction is a contact force — it only acts when surfaces are touching. Gravity, magnetism, and electrostatic forces are non-contact forces that can act at a distance."
+      }
+    ]
+  },
+
+  // ROOM 2 — F = ma calculations
+  {
+    id: 2,
+    title: "The Acceleration Vault",
+    tag: "ROOM 02 — FORCE CALCULATIONS",
+    desc: "The thruster control is locked. Solve these F = ma calculations to restore engine power.",
+    type: "calculation-code",
+    intro: "Use Newton's Second Law:",
+    formula: "F = m × a",
+    questions: [
+      {
+        q: "A 5 kg object accelerates at 3 m/s². What is the resultant force acting on it?",
+        hint: "F = m × a = 5 × 3 = ?",
+        answer: "15",
+        unit: "N",
+        feedback: "F = 5 × 3 = 15 N. Well done!"
+      },
+      {
+        q: "A force of 120 N acts on a 8 kg object. What is its acceleration in m/s²?",
+        hint: "Rearrange: a = F ÷ m = 120 ÷ 8 = ?",
+        answer: "15",
+        unit: "m/s²",
+        feedback: "a = 120 ÷ 8 = 15 m/s². Great rearrangement!"
+      },
+      {
+        q: "An object accelerates at 4 m/s² when a force of 28 N is applied. What is its mass in kg?",
+        hint: "Rearrange: m = F ÷ a = 28 ÷ 4 = ?",
+        answer: "7",
+        unit: "kg",
+        feedback: "m = 28 ÷ 4 = 7 kg. Perfect!"
+      },
+      {
+        q: "On Earth (g = 10 N/kg), what is the weight of a 65 kg astronaut in Newtons?",
+        hint: "Weight W = m × g = 65 × 10 = ?",
+        answer: "650",
+        unit: "N",
+        feedback: "W = 65 × 10 = 650 N. Remember: weight is a force, measured in Newtons — not the same as mass!"
+      }
+    ]
+  },
+
+  // ROOM 3 — Pressure
+  {
+    id: 3,
+    title: "The Pressure Lock",
+    tag: "ROOM 03 — PRESSURE",
+    desc: "The hull pressure sensors are malfunctioning. Apply your pressure knowledge to recalibrate them.",
+    type: "multi-mc",
+    questions: [
+      {
+        q: "What is the formula for pressure?",
+        opts: ["P = m × a", "P = F × A", "P = F ÷ A", "P = A ÷ F"],
+        answer: 2,
+        feedback: "Correct! Pressure = Force ÷ Area (P = F/A). Pressure is measured in Pascals (Pa), where 1 Pa = 1 N/m². A smaller area means higher pressure for the same force."
+      },
+      {
+        q: "Both blocks in the diagram are pushed down with 500 N. Block A has area 0.02 m². Block B has a smaller area. Which block exerts MORE pressure on the ground?",
+        diagram: "pressure_diagram",
+        opts: [
+          "Block A — it's wider so spreads more force",
+          "Block B — smaller area means greater pressure",
+          "They both exert the same pressure",
+          "Neither — pressure depends only on weight"
+        ],
+        answer: 1,
+        feedback: "Correct! P = F/A. With the same force, a smaller area gives HIGHER pressure. This is why knife blades are sharp, and snowshoes have large areas — to reduce pressure on snow."
+      },
+      {
+        q: "A force of 200 N is applied over an area of 0.04 m². What is the pressure in Pascals?",
+        opts: ["8 Pa", "5000 Pa", "800 Pa", "50 Pa"],
+        answer: 1,
+        feedback: "Correct! P = F ÷ A = 200 ÷ 0.04 = 5000 Pa. Watch the units — areas are often small decimals in m², giving large pressure values."
+      },
+      {
+        q: "Why does a drawing pin have a sharp point and a flat head?",
+        opts: [
+          "The flat head reduces pressure on your thumb; the sharp point increases pressure on the wall",
+          "The sharp point reduces pressure; the flat head concentrates force",
+          "Both ends exert the same pressure",
+          "It only works because of magnetic force"
+        ],
+        answer: 0,
+        feedback: "Correct! Same pushing force — two very different areas. The large flat head spreads the force (low pressure → comfortable for your thumb). The tiny sharp point concentrates the force (high pressure → penetrates the wall easily)."
+      }
+    ]
+  },
+
+  // ROOM 4 — Moments
+  {
+    id: 4,
+    title: "The Moment Mechanism",
+    tag: "ROOM 04 — MOMENTS & EQUILIBRIUM",
+    desc: "The station's stabiliser arm is off-balance. Apply the Principle of Moments to correct it.",
+    type: "multi-mc",
+    questions: [
+      {
+        q: "What is the formula for the turning effect (moment) of a force?",
+        opts: ["Moment = Force ÷ Distance", "Moment = Force × perpendicular distance", "Moment = mass × acceleration", "Moment = Force + Distance"],
+        answer: 1,
+        feedback: "Correct! Moment (Nm) = Force (N) × perpendicular distance from pivot (m). The moment measures the turning effect of a force about a pivot point."
+      },
+      {
+        q: "Using the beam diagram — a 30 N force acts 1.1 m from the pivot. What force F is needed 0.6 m on the other side to balance the beam?",
+        diagram: "moment_diagram",
+        opts: ["16.4 N", "55 N", "18 N", "30 N"],
+        answer: 1,
+        feedback: "Correct! Using the Principle of Moments: clockwise moment = anticlockwise moment. 30 × 1.1 = F × 0.6 → 33 = 0.6F → F = 55 N. A shorter distance from the pivot requires a LARGER force to balance."
+      },
+      {
+        q: "For an object to be in rotational equilibrium (not turning), what must be true?",
+        opts: [
+          "All forces must be zero",
+          "The total clockwise moment must equal the total anticlockwise moment",
+          "The object must not be moving",
+          "There must be no friction"
+        ],
+        answer: 1,
+        feedback: "Correct! The Principle of Moments states: for equilibrium, sum of clockwise moments = sum of anticlockwise moments. This applies to seesaws, bridges, cranes, and any balanced structure."
+      },
+      {
+        q: "A spanner with a longer handle is easier to turn a bolt. Why?",
+        opts: [
+          "Longer handle = smaller force needed for the same moment",
+          "Longer handle = less friction on the bolt",
+          "Longer handle = smaller moment produced",
+          "Longer handle = heavier, giving more weight"
+        ],
+        answer: 0,
+        feedback: "Correct! Moment = Force × distance. A longer distance means you need LESS force to produce the same turning moment. This is why doors have handles far from the hinge, and wheel nuts use long lever bars."
+      }
+    ]
+  },
+
+  // ROOM 5 — Motion, Terminal Velocity & Final Code
+  {
+    id: 5,
+    title: "The Motion Core",
+    tag: "ROOM 05 — MOTION & TERMINAL VELOCITY",
+    desc: "The final core is locked. Decode the 4-digit override using your knowledge of motion and terminal velocity.",
+    type: "code-entry",
+    intro: "Decode each clue to reveal one digit of the override code.",
+    clues: [
+      {
+        q: "At terminal velocity, the forces on a falling object are balanced. Enter: 1 = resultant force is zero, 2 = resultant force is maximum, 3 = object is still accelerating",
+        answer: "1",
+        hint: "Terminal velocity means constant speed — what does Newton's 1st Law say about constant speed and force?",
+        feedback: "Correct! At terminal velocity, weight downward = air resistance upward. Resultant force = 0, so acceleration = 0 and speed is constant."
+      },
+      {
+        q: "A car of mass 1200 kg accelerates at 2 m/s². Using F = ma, what is the resultant force in kN? Enter just the number (e.g. 2 for 2400 N = 2.4 kN → round to nearest whole kN)",
+        answer: "2",
+        hint: "F = 1200 × 2 = 2400 N = 2.4 kN → rounds to 2 kN",
+        feedback: "Correct! F = 1200 × 2 = 2400 N ≈ 2 kN. Good application of F = ma!"
+      },
+      {
+        q: "A skydiver opens their parachute. Their speed: 1 = immediately increases, 2 = immediately decreases, 3 = stays the same",
+        answer: "2",
+        hint: "Opening the parachute massively increases air resistance — what does a large upward force do to a downward-moving skydiver?",
+        feedback: "Correct! Opening the parachute increases air resistance dramatically, creating a large upward resultant force. This decelerates the skydiver rapidly — their speed decreases."
+      },
+      {
+        q: "On the Moon (g = 1.6 N/kg), what is the weight of a 50 kg astronaut? Enter just the digits (e.g. 80 for 80 N)",
+        answer: "80",
+        hint: "W = m × g = 50 × 1.6 = ?",
+        feedback: "Correct! W = 50 × 1.6 = 80 N. On Earth this same astronaut would weigh 500 N — their mass doesn't change, but weight depends on gravitational field strength."
+      }
+    ]
+  }
+];
+
+// ============================================================
+// ENGINE
+// ============================================================
+function startGame() {
+  state.startTime = Date.now();
+  document.getElementById('screen-title').classList.remove('active');
+  document.getElementById('screen-game').classList.add('active');
+  document.getElementById('top-bar').style.display = 'flex';
+  loadRoom(0);
+}
+
+function loadRoom(idx) {
+  state.room = idx;
+  currentRoom = rooms[idx];
+  questionIndex = 0;
+  questionsCorrect = 0;
+  hintShown = false;
+  clueIndex = 0;
+  collectedDigits = [];
+  updateProgressBar();
+  updateRoomsNav();
+  document.getElementById('room-indicator').textContent = `ROOM ${idx + 1} / ${rooms.length}`;
+  if (currentRoom.type === 'multi-mc') renderMultiMC();
+  else if (currentRoom.type === 'calculation-code') renderCalcCode();
+  else if (currentRoom.type === 'code-entry') renderCodeEntry();
+}
+
+function updateProgressBar() {
+  document.getElementById('progress-fill').style.width = (state.room / rooms.length * 100) + '%';
+}
+
+function updateRoomsNav() {
+  const nav = document.getElementById('rooms-nav');
+  nav.innerHTML = '';
+  rooms.forEach((r, i) => {
+    const pip = document.createElement('div');
+    pip.className = 'room-pip' + (i < state.room ? ' done' : i === state.room ? ' current' : '');
+    pip.textContent = i < state.room ? '✓' : (i + 1);
+    nav.appendChild(pip);
+  });
+}
+
+function updateScore() { document.getElementById('score-display').textContent = state.score; }
+function flashSuccess() {
+  const el = document.getElementById('success-burst');
+  el.classList.add('flash');
+  setTimeout(() => el.classList.remove('flash'), 700);
+}
+
+// ====== MULTI MC ======
+function renderMultiMC() {
+  const room = currentRoom;
+  const q = room.questions[questionIndex];
+  const total = room.questions.length;
+  const dots = room.questions.map((_, i) =>
+    `<div class="q-dot ${i < questionIndex ? 'done' : i === questionIndex ? 'current' : ''}"></div>`
+  ).join('');
+  const diag = q.diagram ? `<div class="diagram">${getDiagram(q.diagram)}<div class="diagram-label">Fig. ${questionIndex + 1}</div></div>` : '';
+  const longOpts = q.opts.some(o => o.length > 40);
+  const opts = q.opts.map((o, i) =>
+    `<button class="opt-btn" onclick="checkMC(${i})">${o}</button>`
+  ).join('');
+
+  document.getElementById('game-panel').innerHTML = `
+    <div class="panel-title"><span class="room-num">${room.tag}</span></div>
+    <div style="font-family:'Bebas Neue',monospace; font-size:1.5rem; color:#fff; margin-bottom:6px;">${room.title}</div>
+    <div class="panel-desc">${room.desc}</div>
+    <div class="q-counter">QUESTION ${questionIndex + 1} OF ${total}</div>
+    <div class="q-dots">${dots}</div>
+    <div class="q-text">${q.q}</div>
+    ${diag}
+    <div class="options ${longOpts ? 'single-col' : ''}">${opts}</div>
+    <div class="feedback" id="feedback"></div>
+    <div class="next-btn-row" id="next-row" style="display:none">
+      <button class="btn btn-primary" onclick="nextMCQ()">${questionIndex + 1 < total ? 'NEXT →' : 'UNLOCK VAULT →'}</button>
+    </div>`;
+}
+
+function checkMC(idx) {
+  const q = currentRoom.questions[questionIndex];
+  document.querySelectorAll('.opt-btn').forEach(b => b.classList.add('disabled'));
+  const fb = document.getElementById('feedback');
+  if (idx === q.answer) {
+    document.querySelectorAll('.opt-btn')[idx].classList.add('correct');
+    fb.className = 'feedback good show';
+    fb.innerHTML = `✅ <strong>Correct!</strong> ${q.feedback}`;
+    state.score += hintShown ? 5 : 10;
+    questionsCorrect++;
+    updateScore(); flashSuccess();
+  } else {
+    document.querySelectorAll('.opt-btn')[idx].classList.add('wrong');
+    document.querySelectorAll('.opt-btn')[q.answer].classList.add('correct');
+    fb.className = 'feedback bad show';
+    fb.innerHTML = `❌ <strong>Not quite.</strong> ${q.feedback}`;
+  }
+  document.getElementById('next-row').style.display = 'flex';
+  hintShown = false;
+}
+
+function nextMCQ() {
+  questionIndex++;
+  if (questionIndex < currentRoom.questions.length) renderMultiMC();
+  else advanceRoom();
+}
+
+// ====== CALC CODE ======
+function renderCalcCode() {
+  const room = currentRoom;
+  const q = room.questions[questionIndex];
+  const dots = room.questions.map((_, i) =>
+    `<div class="q-dot ${i < questionIndex ? 'done' : i === questionIndex ? 'current' : ''}"></div>`
+  ).join('');
+  document.getElementById('game-panel').innerHTML = `
+    <div class="panel-title"><span class="room-num">${room.tag}</span></div>
+    <div style="font-family:'Bebas Neue',monospace; font-size:1.5rem; color:#fff; margin-bottom:6px;">${room.title}</div>
+    <div class="panel-desc">${room.desc}<br><br>${room.intro} <span class="formula-box">${room.formula}</span></div>
+    <div class="q-counter">CALCULATION ${questionIndex + 1} OF ${room.questions.length}</div>
+    <div class="q-dots">${dots}</div>
+    <div class="q-text">${q.q}</div>
+    <div class="q-hint" id="hint-text" style="display:none">💡 HINT: ${q.hint}</div>
+    <div class="input-row">
+      <input type="number" class="code-input" id="calc-input" placeholder="?" style="font-size:1.2rem; letter-spacing:0.1em"/>
+      <span style="align-self:center; color:var(--dim); font-family:'Share Tech Mono'">${q.unit}</span>
+    </div>
+    <div class="feedback" id="feedback"></div>
+    <div style="display:flex; gap:10px; margin-top:16px; justify-content:space-between; flex-wrap:wrap;">
+      <button class="btn btn-secondary" onclick="showCalcHint()">💡 HINT (−5 pts)</button>
+      <button class="btn btn-primary" onclick="checkCalc()">CHECK →</button>
+    </div>`;
+  document.getElementById('calc-input').addEventListener('keydown', e => { if (e.key === 'Enter') checkCalc(); });
+}
+
+function showCalcHint() {
+  document.getElementById('hint-text').style.display = 'block';
+  hintShown = true; state.hintsUsed++;
+}
+
+function checkCalc() {
+  const q = currentRoom.questions[questionIndex];
+  const val = document.getElementById('calc-input').value.trim();
+  const fb = document.getElementById('feedback');
+  const inp = document.getElementById('calc-input');
+  if (parseFloat(val) === parseFloat(q.answer)) {
+    inp.classList.add('success');
+    fb.className = 'feedback good show';
+    fb.innerHTML = `✅ <strong>Correct!</strong> ${q.feedback || 'Well done!'}`;
+    state.score += hintShown ? 5 : 10;
+    questionsCorrect++; updateScore(); flashSuccess();
+    setTimeout(() => { questionIndex++; hintShown = false; if (questionIndex < currentRoom.questions.length) renderCalcCode(); else advanceRoom(); }, 1800);
+  } else {
+    inp.classList.add('error');
+    fb.className = 'feedback bad show';
+    fb.innerHTML = `❌ Not quite — check your rearrangement and try again.`;
+    setTimeout(() => { inp.classList.remove('error'); inp.value = ''; }, 600);
+  }
+}
+
+// ====== CODE ENTRY ======
+function renderCodeEntry() {
+  clueIndex = 0; collectedDigits = [];
+  renderClue();
+}
+
+function renderClue() {
+  const room = currentRoom;
+  const clue = room.clues[clueIndex];
+  const dots = room.clues.map((_, i) =>
+    `<div class="q-dot ${i < clueIndex ? 'done' : i === clueIndex ? 'current' : ''}"></div>`
+  ).join('');
+  const codeDisplay = room.clues.map((_, i) =>
+    i < collectedDigits.length ? `<span style="color:var(--success)">${collectedDigits[i]}</span>` : `<span>?</span>`
+  ).join('');
+
+  document.getElementById('game-panel').innerHTML = `
+    <div class="panel-title"><span class="room-num">${room.tag}</span></div>
+    <div style="font-family:'Bebas Neue',monospace; font-size:1.5rem; color:#fff; margin-bottom:6px;">${room.title}</div>
+    <div class="panel-desc">${room.desc}<br><br>${room.intro}</div>
+    <div class="clue-display">${codeDisplay}</div>
+    <div class="q-counter">CLUE ${clueIndex + 1} OF ${room.clues.length}</div>
+    <div class="q-dots">${dots}</div>
+    <div class="q-text">${clue.q}</div>
+    <div class="q-hint" id="hint-text" style="display:none">💡 ${clue.hint}</div>
+    <div class="input-row">
+      <input type="text" class="code-input" id="clue-input" placeholder="?" style="max-width:140px"/>
+    </div>
+    <div class="feedback" id="feedback"></div>
+    <div style="display:flex; gap:10px; margin-top:16px; justify-content:space-between; flex-wrap:wrap;">
+      <button class="btn btn-secondary" onclick="showClueHint()">💡 HINT (−5 pts)</button>
+      <button class="btn btn-orange" onclick="checkClue()">DECODE →</button>
+    </div>`;
+  document.getElementById('clue-input').addEventListener('keydown', e => { if (e.key === 'Enter') checkClue(); });
+}
+
+function showClueHint() {
+  document.getElementById('hint-text').style.display = 'block';
+  hintShown = true; state.hintsUsed++;
+}
+
+function checkClue() {
+  const clue = currentRoom.clues[clueIndex];
+  const val = document.getElementById('clue-input').value.trim();
+  const fb = document.getElementById('feedback');
+  const inp = document.getElementById('clue-input');
+  if (val === clue.answer) {
+    inp.classList.add('success');
+    collectedDigits.push(val);
+    fb.className = 'feedback good show';
+    fb.innerHTML = `✅ <strong>Digit decoded!</strong> ${clue.feedback}`;
+    state.score += hintShown ? 5 : 10;
+    updateScore(); flashSuccess();
+    setTimeout(() => { hintShown = false; clueIndex++; if (clueIndex < currentRoom.clues.length) renderClue(); else advanceRoom(); }, 1900);
+  } else {
+    inp.classList.add('error');
+    fb.className = 'feedback bad show';
+    fb.innerHTML = `❌ That digit doesn't match — re-read the clue carefully.`;
+    setTimeout(() => { inp.classList.remove('error'); inp.value = ''; }, 500);
+  }
+}
+
+// ====== ADVANCE ======
+function advanceRoom() {
+  state.room++;
+  if (state.room >= rooms.length) { showWin(); return; }
+  document.getElementById('game-panel').innerHTML = `
+    <div style="text-align:center; padding:40px 20px;">
+      <div class="lock-icon">🔓</div>
+      <div style="font-family:'Bebas Neue',monospace; font-size:1.8rem; color:var(--success); margin:10px 0;">VAULT UNLOCKED</div>
+      <div style="color:var(--dim); margin-bottom:24px;">Room ${state.room} cleared. Proceeding to Room ${state.room + 1}…</div>
+      <button class="btn btn-primary" onclick="loadRoom(${state.room})">ENTER ROOM ${state.room + 1} →</button>
+    </div>`;
+  updateRoomsNav();
+}
+
+function showWin() {
+  const elapsed = Math.round((Date.now() - state.startTime) / 1000);
+  document.getElementById('screen-game').classList.remove('active');
+  document.getElementById('top-bar').style.display = 'none';
+  document.getElementById('screen-win').classList.add('active');
+  document.getElementById('progress-fill').style.width = '100%';
+  document.getElementById('final-score').textContent = state.score;
+  document.getElementById('final-hints').textContent = state.hintsUsed;
+  document.getElementById('final-time').textContent = elapsed + 's';
+  flashSuccess();
+}
+
+function restartGame() {
+  state = { room: 0, score: 0, hintsUsed: 0, startTime: null };
+  document.getElementById('screen-win').classList.remove('active');
+  document.getElementById('screen-title').classList.add('active');
+  document.getElementById('progress-fill').style.width = '0%';
+}
+</script>
+</body>
+</html>
